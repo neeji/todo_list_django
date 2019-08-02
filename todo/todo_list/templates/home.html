@@ -12,18 +12,18 @@
 		{% endfor %}
 	{% endif %}
 
-	{% if all_items %}
+	{% if all_tasks %}
 	<table class="table table-bordered">
-		{% for things in all_items %}
+		{% for things in all_tasks %}
 			{% if things.completed%}
 				<tr class="table-secondary">
-					<td class="striker"> <a href="{% url 'edit' things.id %}"> {{ things.item }} </a></td> 
+					<td class="striker"> <a href="{% url 'edit' things.id %}"> {{ things.task }} </a></td> 
 					<td> <center> <a href="{% url 'uncross' things.id %}"> Uncross </center> </td>
 					<td> <center> <a href="{% url 'delete' things.id %}"> Delete </a> </center> </td>
 				</tr>
 			{% else %}
 				<tr>
-					<td><a href="{% url 'edit' things.id %}"> {{ things.item }} </a></td> 
+					<td><a href="{% url 'edit' things.id %}"> {{ things.task }} </a></td> 
 					<td> <center> <a href="{% url 'cross_off' things.id %}"> Cross Off</a> </center> </td>
 					<td> <center> <a href="{% url 'delete' things.id %}"> Delete </a> </center> </td>
 				</tr>

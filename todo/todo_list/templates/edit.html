@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 
 {% block content %}
-	{% if item %}
+	{% if task %}
 		<form class="form-inline my-2 my-lg-0" method="POST">
 			{% csrf_token %}
-			<input class="form-control mr-sm-2" type="search" placeholder="{{ item.item}}" value="{{item.item}}" aria-label="Search" name="item">
-			<input type="hidden" name="completed" value="{{item.completed}}" 
+			<input class="form-control mr-sm-2" type="search" placeholder="{{ task.task}}" value="{{task.task}}" aria-label="Search" name="item">
+			<input type="hidden" name="completed" value="{{task.completed}}" 
 			>
 			<button class="btn btn-outline-secondary my-2 my-sm-0"
-			type="submit">Edit Item</button>
+			type="submit">Edit Task</button>
 		</form>
 	{% endif %}
 {% endblock %}
