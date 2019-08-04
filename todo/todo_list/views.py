@@ -2,6 +2,7 @@ from django.shortcuts import render,redirect
 from .models import List, Task
 from .forms import ListForm,TaskForm
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 
 
 def home(request):
@@ -22,6 +23,7 @@ def home(request):
 		all_lists = List.objects.filter(author=request.user.id)
 		return render(request,'home.html',{'all_lists':all_lists})
 
+@login_required
 def task_home(request,_id):
 	# return render(request,"home.html",{})
 	if request.method == 'POST':
@@ -29,15 +31,16 @@ def task_home(request,_id):
 
 		if form.is_valid():
 			# for adding user id along with the task we need user id
-			form.instance.list_id = _id
+			listid = List.objects.get(pk=_id)
+			form.instance.listid = listid
 			form.save()
 			# all_tasks = List.objects.all()
 			messages.success(request,("Task added to list Successfully..."))
-			return redirect("task_home")
+			return redirect("task_home",_id)
 			# return render(request,'home.html',{'all_tasks':all_tasks})
 	else:
 		# print(request.user.id)
-		all_tasks = Task.objects.filter(list_id=_id)
+		all_tasks = Task.objects.filter(listid=_id)
 		return render(request,'task_home.html',{'all_tasks':all_tasks})
 
 def delete(request,list_id):

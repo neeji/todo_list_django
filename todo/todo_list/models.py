@@ -19,7 +19,8 @@ class Task(models.Model):
 	completed = models.BooleanField(default=False)
 	date_posted = models.DateTimeField(auto_now_add=True)
 	last_modified = models.DateTimeField(auto_now=True)
-	list_id = models.ForeignKey(List,on_delete=models.CASCADE)
+	# listid = models.IntegerField(default=0)
+	listid = models.ForeignKey(List,on_delete=models.CASCADE)
 
 	def __str__(self):
 		return self.task + '|' + str(sel.completed)
