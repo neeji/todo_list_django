@@ -1,6 +1,6 @@
 from django.shortcuts import render,redirect
-from .models import List
-from .forms import ListForm
+from .models import List, Task
+from .forms import ListForm,TaskForm
 from django.contrib import messages
 
 
@@ -10,15 +10,35 @@ def home(request):
 		form = ListForm(request.POST or None)
 
 		if form.is_valid():
+			# for adding user id along with the task we need user id
+			form.instance.author = request.user
 			form.save()
 			# all_tasks = List.objects.all()
-			messages.success(request,("task has been added to the List Successfully..."))
+			messages.success(request,("List created Successfully..."))
 			return redirect("home")
 			# return render(request,'home.html',{'all_tasks':all_tasks})
 	else:
-		all_tasks = List.objects.all()
-		return render(request,'home.html',{'all_tasks':all_tasks})
+		# print(request.user.id)
+		all_lists = List.objects.filter(author=request.user.id)
+		return render(request,'home.html',{'all_lists':all_lists})
 
+def task_home(request,_id):
+	# return render(request,"home.html",{})
+	if request.method == 'POST':
+		form = TaskForm(request.POST or None)
+
+		if form.is_valid():
+			# for adding user id along with the task we need user id
+			form.instance.list_id = _id
+			form.save()
+			# all_tasks = List.objects.all()
+			messages.success(request,("Task added to list Successfully..."))
+			return redirect("task_home")
+			# return render(request,'home.html',{'all_tasks':all_tasks})
+	else:
+		# print(request.user.id)
+		all_tasks = Task.objects.filter(list_id=_id)
+		return render(request,'task_home.html',{'all_tasks':all_tasks})
 
 def delete(request,list_id):
 	task = List.objects.get(pk=list_id)

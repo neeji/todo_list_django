@@ -12,20 +12,20 @@
 		{% endfor %}
 	{% endif %}
 
-	{% if all_tasks %}
+	{% if all_lists %}
 	<table class="table table-bordered">
-		{% for things in all_tasks %}
-			{% if things.completed%}
+		{% for list in all_lists %}
+			{% if list.completed%}
 				<tr class="table-secondary">
-					<td class="striker"> <a href="{% url 'edit' things.id %}"> {{ things.task }} </a></td> 
-					<td> <center> <a href="{% url 'uncross' things.id %}"> Uncross </center> </td>
-					<td> <center> <a href="{% url 'delete' things.id %}"> Delete </a> </center> </td>
+					<td class="striker"> <a href="{% url 'task_home' list.id %}"> {{ list.list_name}} </a></td> 
+					<td> <center> <a href="{% url 'uncross' list.id %}"> Uncross </center> </td>
+					<td> <center> <a href="{% url 'delete' list.id %}"> Delete </a> </center> </td>
 				</tr>
 			{% else %}
 				<tr>
-					<td><a href="{% url 'edit' things.id %}"> {{ things.task }} </a></td> 
-					<td> <center> <a href="{% url 'cross_off' things.id %}"> Cross Off</a> </center> </td>
-					<td> <center> <a href="{% url 'delete' things.id %}"> Delete </a> </center> </td>
+					<td><a href="{% url 'task_home' list.id %}"> {{ list.list_name }} </a></td> 
+					<td> <center> <a href="{% url 'cross_off' list.id %}"> Cross Off</a> </center> </td>
+					<td> <center> <a href="{% url 'delete' list.id %}"> Delete </a> </center> </td>
 				</tr>
 			{% endif %}
 
