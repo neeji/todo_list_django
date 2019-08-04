@@ -61,15 +61,19 @@ def uncross(request,list_id):
 	task.save()
 	return redirect("home")
 
-def edit(request,list_id):
+def edit(request,_id):
+	print(_id)
 	if request.method=='POST':
-		task = List.objects.get(pk = list_id)
-		form = ListForm(request.POST or None, instance=task)
+		task_to_be_edited = Task.objects.get(pk = _id)
+		form = TaskForm(request.POST or None, instance=task_to_be_edited)
 
 		if form.is_valid():
 			form.save()
 			messages.success(request,('task has been edited successfully...'))
-			return redirect('home')
+			task_home_id = Task.objects.get(pk=_id)
+			print(task_home_id.listid.id)
+			task_home_id = task_home_id.listid.id
+			return redirect('task_home',task_home_id)
 	else:
-		task = List.objects.get(pk=list_id)
+		task = Task.objects.get(pk=_id)
 		return render(request,'edit.html',{'task':task})

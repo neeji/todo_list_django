@@ -1,10 +1,10 @@
-{% extends 'base.html' %}
+{% extends 'base_task.html' %}
 
 {% block content %}
 	{% if task %}
 		<form class="form-inline my-2 my-lg-0" method="POST">
 			{% csrf_token %}
-			<input class="form-control mr-sm-2" type="search" placeholder="{{ task.task}}" value="{{task.task}}" aria-label="Search" name="item">
+			<input class="form-control mr-sm-2" type="search" placeholder="{{ task.task }}" value="{{ task.task }}" aria-label="Search" name="task">
 			<input type="hidden" name="completed" value="{{task.completed}}" 
 			>
 			<button class="btn btn-outline-secondary my-2 my-sm-0"

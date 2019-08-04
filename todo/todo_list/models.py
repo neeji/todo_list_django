@@ -23,4 +23,4 @@ class Task(models.Model):
 	listid = models.ForeignKey(List,on_delete=models.CASCADE)
 
 	def __str__(self):
-		return self.task + '|' + str(sel.completed)
+		return self.task + '|' + str(self.completed)
