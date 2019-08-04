@@ -24,42 +24,58 @@ def home(request):
 		return render(request,'home.html',{'all_lists':all_lists})
 
 @login_required
-def task_home(request,_id):
+def task_home(request,list_id):
 	# return render(request,"home.html",{})
 	if request.method == 'POST':
 		form = TaskForm(request.POST or None)
 
 		if form.is_valid():
 			# for adding user id along with the task we need user id
-			listid = List.objects.get(pk=_id)
+			listid = List.objects.get(pk=list_id)
 			form.instance.listid = listid
 			form.save()
 			# all_tasks = List.objects.all()
 			messages.success(request,("Task added to list Successfully..."))
-			return redirect("task_home",_id)
+			return redirect("task_home",list_id)
 			# return render(request,'home.html',{'all_tasks':all_tasks})
 	else:
 		# print(request.user.id)
-		all_tasks = Task.objects.filter(listid=_id)
+		all_tasks='temp'
+		
+		try:
+			lsit = List.objects.get(pk=list_id)
+			all_tasks = Task.objects.filter(listid=list_id)
+		except List.DoesNotExist:
+			return redirect("home")
+
 		return render(request,'task_home.html',{'all_tasks':all_tasks})
 
-def delete(request,list_id):
-	task = List.objects.get(pk=list_id)
+def delete_list(request,list_id):
+	list_to_delete = List.objects.get(pk=list_id)
+	list_to_delete.delete()
+	messages.success(request,"List has been deleted successfully...")
+	return redirect("home")
+
+def delete(request,_id):
+	task = Task.objects.get(pk=_id)
+	list_id = task.listid.id
 	task.delete()
 	messages.success(request,"task has been deleted successfully...")
-	return redirect("home")
+	return redirect("task_home",list_id)
 
-def cross_off(request,list_id):
-	task = List.objects.get(pk = list_id)
+def cross_off(request,_id):
+	task = Task.objects.get(pk = _id)
+	list_id = task.listid.id
 	task.completed = True
 	task.save()
-	return redirect("home")
+	return redirect("task_home",list_id)
 
-def uncross(request,list_id):
-	task = List.objects.get(pk=list_id)
+def uncross(request,_id):
+	task = Task.objects.get(pk=_id)
+	list_id = task.listid.id
 	task.completed=False
 	task.save()
-	return redirect("home")
+	return redirect("task_home",list_id)
 
 def edit(request,_id):
 	print(_id)
