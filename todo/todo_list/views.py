@@ -2,7 +2,8 @@ from django.shortcuts import render,redirect
 from .models import List
 from .forms import ListForm
 from django.contrib import messages
-# Create your views here.
+
+
 def home(request):
 	# return render(request,"home.html",{})
 	if request.method == 'POST':
@@ -10,13 +11,14 @@ def home(request):
 
 		if form.is_valid():
 			form.save()
-			all_tasks = List.objects.all()
+			# all_tasks = List.objects.all()
 			messages.success(request,("task has been added to the List Successfully..."))
-			return render(request,'home.html',{'all_tasks':all_tasks})
-
+			return redirect("home")
+			# return render(request,'home.html',{'all_tasks':all_tasks})
 	else:
 		all_tasks = List.objects.all()
 		return render(request,'home.html',{'all_tasks':all_tasks})
+
 
 def delete(request,list_id):
 	task = List.objects.get(pk=list_id)
