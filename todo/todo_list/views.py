@@ -119,17 +119,23 @@ def share(request,list_id):
 	form = ShareForm()
 	if request.method=='POST':
 		list_share = List.objects.get(pk=list_id)
-		print(list_share)
+		# print(list_share)
 		form = ShareForm(request.POST or None)
 		if form.is_valid():
 			# cd = form.cleaned_data
 			username = form.cleaned_data['email']
 			try:
 				user_sharing = User.objects.get(email=username)
-				print(user_sharing)
-				data = Share(user=user_sharing,listid=list_share,shared_list_id=list_id,sahred_user_id=user_sharing.id)
-				data.save()
-				messages.success(request,"Your list is shared successfully.")
+				# print(user_sharing)
+				try:
+					validate = Share.objects.get(sahred_user_id=user_sharing.id,shared_list_id=list_id)
+				except Share.DoesNotExist:
+					data = Share(user=user_sharing,listid=list_share,shared_list_id=list_id,sahred_user_id=user_sharing.id)
+					data.save()
+					messages.success(request,"Your list is shared successfully.")
+					# return redirect("home")
+					return redirect('email',list_id,username)
+				messages.error(request,'list already shared with the provided user email.')
 				return redirect("home")
 			except User.DoesNotExist:
 				messages.error(request,'email enterd is not valid or any user with the provided email doesnot exist.')
