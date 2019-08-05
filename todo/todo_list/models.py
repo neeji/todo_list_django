@@ -24,3 +24,12 @@ class Task(models.Model):
 
 	def __str__(self):
 		return self.task + '|' + str(self.completed)
+
+class Share(models.Model):
+	user = models.ForeignKey(User,on_delete=models.CASCADE)
+	listid = models.ForeignKey(List,on_delete=models.CASCADE)
+	sahred_user_id = models.IntegerField()
+	shared_list_id = models.IntegerField()
+
+	def __str__(self):
+		return str(self.sahred_user_id) + '|' + str(self.shared_list_id)
