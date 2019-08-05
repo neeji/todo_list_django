@@ -44,7 +44,7 @@ def task_home(request,list_id):
 			return redirect("task_home",list_id)
 	else:
 		# print(request.user.id)
-		all_tasks='temp'
+		all_tasks=''
 
 		try:
 			user_id = request.user.id
