@@ -69,6 +69,20 @@ def task_home(request,list_id):
 		return render(request,'task_home.html',{'all_tasks':all_tasks})
 
 def delete_list(request,list_id):
+	# authenticate user first
+	if(not request.user.is_authenticated):
+		return redirect('login')
+	# check if list_id is correct or not
+	try:
+		valid_1 = List.objects.get(pk=list_id)
+	except ListDoesNotExist:
+		messages.error("list you are trying to delete does not exist.")
+		return redirect('home')
+	# check authority of the user to delete list
+	if valid_1.user != request.user:
+		messages.error("You don't have permission to do the following task.")
+		return redirect('home')
+	# if user is authenticated and authorised then continue to delete list.
 	list_to_delete = List.objects.get(pk=list_id)
 	list_to_delete.delete()
 	messages.success(request,"List has been deleted successfully...")
@@ -117,34 +131,66 @@ def share(request,list_id):
 	list_share=''
 	user_sharing=''
 	form = ShareForm()
-	if request.method=='POST':
-		list_share = List.objects.get(pk=list_id)
-		# print(list_share)
-		form = ShareForm(request.POST or None)
-		if form.is_valid():
-			# cd = form.cleaned_data
-			username = form.cleaned_data['email']
-			try:
-				user_sharing = User.objects.get(email=username)
-				# print(user_sharing)
-				try:
-					validate = Share.objects.get(sahred_user_id=user_sharing.id,shared_list_id=list_id)
-				except Share.DoesNotExist:
-					data = Share(user=user_sharing,listid=list_share,shared_list_id=list_id,sahred_user_id=user_sharing.id)
-					data.save()
-					messages.success(request,"Your list is shared successfully.")
-					# return redirect("home")
-					return redirect('email',list_id,username)
-				messages.error(request,'list already shared with the provided user email.')
-				return redirect("home")
-			except User.DoesNotExist:
-				messages.error(request,'email enterd is not valid or any user with the provided email doesnot exist.')
-				return render(request,'share.html',list_id)
-			# print(username)
-		else:
-			message.error(request,"some error occured please try again later.")
-			return redirect("home")
-	else:
+	# if request.method=='POST':
+	# 	list_share = List.objects.get(pk=list_id)
+	# 	# print(list_share)
+	# 	form = ShareForm(request.POST or None)
+	# 	if form.is_valid():
+	# 		# cd = form.cleaned_data
+	# 		username = form.cleaned_data['email']
+	# 		try:
+	# 			user_sharing = User.objects.get(email=username)
+	# 			# print(user_sharing)
+	# 			try:
+	# 				validate = Share.objects.get(sahred_user_id=user_sharing.id,shared_list_id=list_id)
+	# 			except Share.DoesNotExist:
+	# 				data = Share(user=user_sharing,listid=list_share,shared_list_id=list_id,sahred_user_id=user_sharing.id)
+	# 				data.save()
+	# 				messages.success(request,"Your list is shared successfully.")
+	# 				# return redirect("home")
+	# 				return redirect('email',list_id,username)
+	# 			messages.error(request,'list already shared with the provided user email.')
+	# 			return redirect("home")
+	# 		except User.DoesNotExist:
+	# 			messages.error(request,'email enterd is not valid or any user with the provided email doesnot exist.')
+	# 			return render(request,'share.html',list_id)
+	# 		# print(username)
+	# 	else:
+	# 		message.error(request,"some error occured please try again later.")
+	# 		return redirect("home")
+	# else:
+	# 	return render(request,'share.html')
+
+	if request.method!='POST':
 		return render(request,'share.html')
+		
+	list_share = List.objects.get(pk=list_id)
+	# print(list_share)
+	form = ShareForm(request.POST or None)
+	if not form.is_valid():
+		message.error(request,"some error occured please try again later.")
+		return redirect("home")
+
+	# cd = form.cleaned_data
+	username = form.cleaned_data['email']
+	try:
+		user_sharing = User.objects.get(email=username)
+		# print(user_sharing)
+		try:
+			validate = Share.objects.get(user_id=user_sharing.id,listid_id=list_id)
+			validate = Share.objects.get(user=user_sharing,listid_id=list_id)
+			validate = Share.objects.get(user=user_sharing,listid=list_id)
+		except Share.DoesNotExist:
+			data = Share(user=user_sharing,listid=list_share,shared_list_id=list_id,sahred_user_id=user_sharing.id)
+			data.save()
+			messages.success(request,"Your list is shared successfully.")
+			# return redirect("home")
+			return redirect('email',list_id,username)
+
+		messages.error(request,'list already shared with the provided user email.')
+		return redirect("home")
+	except User.DoesNotExist:
+		messages.error(request,'email enterd is not valid or any user with the provided email doesnot exist.')
+		return render(request,'share.html',list_id)
 
 
