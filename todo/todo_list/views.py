@@ -71,16 +71,17 @@ def task_home(request,list_id):
 def delete_list(request,list_id):
 	# authenticate user first
 	if(not request.user.is_authenticated):
-		return redirect('login')
+		messages.error(request,"Please Sign In first if already registered otherwise register to our site.")
+		return redirect('home')
 	# check if list_id is correct or not
 	try:
 		valid_1 = List.objects.get(pk=list_id)
 	except ListDoesNotExist:
-		messages.error("list you are trying to delete does not exist.")
+		messages.error(request,"list you are trying to delete does not exist.")
 		return redirect('home')
 	# check authority of the user to delete list
-	if valid_1.user != request.user:
-		messages.error("You don't have permission to do the following task.")
+	if valid_1.author != request.user:
+		messages.error(request,"You don't have permission to do the following task.")
 		return redirect('home')
 	# if user is authenticated and authorised then continue to delete list.
 	list_to_delete = List.objects.get(pk=list_id)
