@@ -90,39 +90,104 @@ def delete_list(request,list_id):
 	return redirect("home")
 
 def delete(request,_id):
-	task = Task.objects.get(pk=_id)
+	# check authentication
+	if(not request.user.is_authenticated):
+		messages.error(request,'Please Sign In first.')
+		return redirect('home')
+	# check if task id is correct or not:
+	try:
+		task = Task.objects.get(pk=_id)
+	except Task.DoesNotExist:
+		messages.error(request,'Task you are trying to delete does not exist.')
+		return redirect('home')
+	# check authorization
 	list_id = task.listid.id
+	valid_check_1 = List.objects.get(pk=list_id)
+	if valid_check_1.author != request.user:
+		try:
+			valid_check_2 = Share.objects.get(listid=list_id,user=request.user)
+		except Share.DoesNotExist:
+			messages.error(request,'You dont have permission for the applied task.')
+			return redirect('home')
 	task.delete()
 	messages.success(request,"task has been deleted successfully...")
 	return redirect("task_home",list_id)
 
 def cross_off(request,_id):
-	task = Task.objects.get(pk = _id)
+	# check authentication
+	if(not request.user.is_authenticated):
+		messages.error(request,'Please Sign In first.')
+		return redirect('home')
+	# check if task id is correct or not:
+	try:
+		task = Task.objects.get(pk=_id)
+	except Task.DoesNotExist:
+		messages.error(request,'Task you are trying to mark done does not exist.')
+		return redirect('home')
+	# check authorization
 	list_id = task.listid.id
+	valid_check_1 = List.objects.get(pk=list_id)
+	if valid_check_1.author != request.user:
+		try:
+			valid_check_2 = Share.objects.get(listid=list_id,user=request.user)
+		except Share.DoesNotExist:
+			messages.error(request,'You dont have permission for the applied task.')
+			return redirect('home')
 	task.completed = True
 	task.save()
 	return redirect("task_home",list_id)
 
 def uncross(request,_id):
-	task = Task.objects.get(pk=_id)
+	# check authentication
+	if(not request.user.is_authenticated):
+		messages.error(request,'Please Sign In first.')
+		return redirect('home')
+	# check if task id is correct or not:
+	try:
+		task = Task.objects.get(pk=_id)
+	except Task.DoesNotExist:
+		messages.error(request,'Task you are trying to mark undone does not exist.')
+		return redirect('home')
+	# check authorization
 	list_id = task.listid.id
-	task.completed=False
+	valid_check_1 = List.objects.get(pk=list_id)
+	if valid_check_1.author != request.user:
+		try:
+			valid_check_2 = Share.objects.get(listid=list_id,user=request.user)
+		except Share.DoesNotExist:
+			messages.error(request,'You dont have permission for the applied task.')
+			return redirect('home')
+	task.completed = False
 	task.save()
 	return redirect("task_home",list_id)
 
 def edit(request,_id):
-	print(_id)
+	# check authentication
+	if(not request.user.is_authenticated):
+		messages.error(request,'Please Sign In first.')
+		return redirect('home')
+	# print(_id)
+	# check if task id is correct or not:
+	try:
+		task = Task.objects.get(pk=_id)
+	except Task.DoesNotExist:
+		messages.error(request,'Task you are trying to edit does not exist.')
+		return redirect('home')
+	#check if the user have the authority to edit task or not 
+	list_id = task.listid.id
+	valid_check_1 = List.objects.get(pk=list_id)
+	if valid_check_1.author != request.user:
+		try:
+			valid_check_2 = Share.objects.get(listid=list_id,user=request.user)
+		except Share.DoesNotExist:
+			messages.error(request,'You dont have permission for the applied task.')
+			return redirect('home')
 	if request.method=='POST':
-		task_to_be_edited = Task.objects.get(pk = _id)
-		form = TaskForm(request.POST or None, instance=task_to_be_edited)
-
+		form = TaskForm(request.POST or None, instance=task)
 		if form.is_valid():
 			form.save()
 			messages.success(request,('task has been edited successfully...'))
-			task_home_id = Task.objects.get(pk=_id)
-			print(task_home_id.listid.id)
-			task_home_id = task_home_id.listid.id
-			return redirect('task_home',task_home_id)
+			return redirect('task_home',list_id)
 	else:
 		task = Task.objects.get(pk=_id)
 		return render(request,'edit.html',{'task':task})
@@ -192,6 +257,6 @@ def share(request,list_id):
 		return redirect("home")
 	except User.DoesNotExist:
 		messages.error(request,'email enterd is not valid or any user with the provided email doesnot exist.')
-		return render(request,'share.html',list_id)
+		return redirect('share',list_id)
 
 
