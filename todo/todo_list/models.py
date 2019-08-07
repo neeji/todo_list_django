@@ -1,8 +1,19 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+from tastypie.models import create_api_key
 
 # Create your models here.
+
+class User(User, models.Model):
+	name = models.CharField(null=True, max_length=32)
+	class Meta:
+		ordering = ('id',)
+
+	def __str__(self):
+		return self.name
+
+models.signals.post_save.connect(create_api_key, sender=User)
 
 class List(models.Model):
 	list_name = models.CharField(max_length=200)

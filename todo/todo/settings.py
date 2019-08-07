@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'todo_list',
     'users.apps.UsersConfig',
     'crispy_forms',
+    'tastypie',
 ]
 
 MIDDLEWARE = [
