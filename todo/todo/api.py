@@ -1,4 +1,5 @@
 from tastypie.resources import ModelResource
+from tastypie.utils import trailing_slash
 from tastypie.constants import ALL,ALL_WITH_RELATIONS
 from tastypie import fields
 from tastypie.authentication import ApiKeyAuthentication
@@ -8,11 +9,15 @@ from django.contrib.auth.models import User
 from todo_list.models import List,Task,Share
 from tastypie import bundle
 from itertools import chain
+from django.conf.urls import url
 
 # Authorization class for filtering data which doesnot belong to the user.
 class UserAuthorization(DjangoAuthorization):
 	def read_list(self,object_list,bundle):
-		return object_list.filter(username=bundle.request.user.username,email=bundle.request.user.email)
+		object_list = object_list.filter(username=bundle.request.user.username,email=bundle.request.user.email) or None
+		if object_list is None:
+			return ["Either the credentials are wrong or user with the provided credentials does not exist."]
+		return object_list
 
 # Authorization class for filtering lists which doesnot belong to the user.
 class ListAuthorization(DjangoAuthorization):
@@ -39,7 +44,7 @@ class ListAuthorization(DjangoAuthorization):
 		return object_list
 
 class TaskAuthorization(DjangoAuthorization):
-	
+
 	def read_list(self,object_list,bundle):
 		# test = Share.objects.filter(user=bundle.request.user)
 		# list1 = object_list.filter(listid)
@@ -72,14 +77,24 @@ class TaskAuthorization(DjangoAuthorization):
 			object_list=list1
 			return object_list
 
+class SharedWithMeAuthorization(DjangoAuthorization):
+
+	def read_list(self,object_list,bundle):
+		object_list = object_list.filter(user=bundle.request.user)
+		return object_list
+
+class SharedByMeAuthorization(DjangoAuthorization):
+
+	def read_list(self,object_list,bundle):
+		object_list = object_list.filter(listid__author__id=bundle.request.user.id)
+		return object_list
+
 class UserResource(ModelResource):
 	class Meta:
 		queryset = User.objects.all()
 		resource_name ='auth/user'
 		excludes = ['password', 'is_active', 'is_staff', 'is_superuser']
 		allowed_methods = ['get']
-		# authentication = BasicAuthentication()
-		# authorization = DjangoAuthorization()
 		filtering={
 		'username':ALL,
 		'id': ALL,
@@ -106,6 +121,75 @@ class ListResource(ModelResource):
 		authentication = ApiKeyAuthentication()
 		authorization = ListAuthorization()
 
+	def prepend_urls(self):
+				# print(resource_name)
+		return [
+			url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
+			url(r"^(?P<resource_name>%s)/share/(?P<listid>\w[\w/-]*)/(?P<username>\w[\w/-]*)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('sharelist'), name='api_particular_list_share'),
+		]
+
+	def particular_id(self,request,**kwargs):
+		# self.method_check(request,allowed=['get','post'])
+		self.is_authenticated(request)
+		# self.throttle_check(request)
+		# Do the query here:
+		# print("hello world")
+		try:
+			send_response = List.objects.get(id=kwargs['pk'],author=request.user)
+			send_response = {'author':send_response.author,'author_id':send_response.author.id,'date_posted':send_response.date_posted,'id':send_response.id,'list_name':send_response.list_name,'completed':send_response.completed,'last_modified':send_response.last_modified}
+		except List.DoesNotExist:
+			send_response={}
+		# print(kwargs)
+		return self.create_response(request,send_response)
+
+	def sharelist(self,request,**kwargs):
+		self.is_authenticated(request)
+		# print(kwargs)
+		# username exist or not
+		try:
+			check_username_validity = User.objects.get(username = kwargs['username'])
+		except User.DoesNotExist:
+			return self.create_response(request,{'error':'username entered doesnot exist'})
+		# check if the entered list id is valid
+		try:
+			check_listid_valid = List.objects.get(id=kwargs['listid'])
+		except List.DoesNotExist:
+			return self.create_response(request,{'error':'entered listid doesnot exist'})
+		# check is user is sending request to himself
+		try:
+			valid_request = List.objects.get(id=kwargs['listid'], author__username=kwargs['username'])
+		except List.DoesNotExist:
+			valid_request = None
+		if valid_request is not None:
+			return self.create_response(request,{'error':"cannot send owner's list to owner itself."})
+		# Before sharing Authorize user from both list and share models
+		try:
+			valid_1 = List.objects.get(id=kwargs['listid'],author=request.user)
+		except List.DoesNotExist:
+			valid_1 = None
+		try:
+			valid_2 = Share.objects.get(listid__id=kwargs['listid'],user = request.user)
+		except Share.DoesNotExist:
+			valid_2 = None
+		if valid_1 is None and valid_2 is None:
+			return self.create_response(request,{'error':'you do not have access to the list with entered id.'})
+		# check if list is already shred with the entered username or not
+		try:
+			valid_sharing = Share.objects.get(listid=kwargs['listid'],user__username=kwargs['username'])
+		except Share.DoesNotExist:
+			valid_sharing = None
+		if valid_sharing is not None:
+			return self.create_response(request,{'error':'list is already shared cannot be shared with the same user again.'})
+		list_ref = List.objects.get(id=kwargs['listid'])
+		user_ref = User.objects.get(username=kwargs['username'])
+		ref_list_id = list_ref.id
+		ref_user_id = user_ref.id
+		sharing = Share(user=user_ref,listid=list_ref,shared_list_id=ref_list_id,sahred_user_id=ref_user_id)
+		sharing.save()
+		return self.create_response(request,{'status':'well done your list is shared successfully.'})
+
+
+
 class TaskResource(ModelResource):
 	_list = fields.ForeignKey(ListResource,'listid', full=True)
 	# _user = fields.ForeignKey(UserResource,'user')
@@ -118,7 +202,22 @@ class TaskResource(ModelResource):
 		authentication = ApiKeyAuthentication()
 		authorization = TaskAuthorization()
 
-class SharedResource(ModelResource):
+
+class SharedWithMeResource(ModelResource):
+	_user = fields.ForeignKey(UserResource,'user',full=True)
+	_list = fields.ForeignKey(ListResource,'listid',full=True)
 	class Meta:
 		queryset = Share.objects.all()
-		resource_name = 'shared'
+		resource_name = 'sharedwithme'
+		authentication = ApiKeyAuthentication()
+		authorization = SharedWithMeAuthorization()
+
+class SharedByMeResource(ModelResource):
+	_user = fields.ForeignKey(UserResource,'user',full=True)
+	_list = fields.ForeignKey(ListResource,'listid',full=True)
+	class Meta:
+		queryset = Share.objects.all()
+		resource_name = 'sharedbyme'
+		authentication = ApiKeyAuthentication()
+		authorization = SharedByMeAuthorization()
+

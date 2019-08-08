@@ -5,7 +5,7 @@ from django.contrib.auth import views as auth_views
 from users import views as user_views
 from django.conf.urls import url
 from tastypie.api import Api
-from .api import ListResource, TaskResource, SharedResource, UserResource
+from .api import ListResource, TaskResource, SharedWithMeResource, UserResource, SharedByMeResource
 
 # list_resource = ListResource()
 # task_resource = TaskResource()
@@ -14,7 +14,8 @@ from .api import ListResource, TaskResource, SharedResource, UserResource
 v1_api = Api(api_name='v1')
 v1_api.register(ListResource())
 v1_api.register(TaskResource())
-v1_api.register(SharedResource())
+v1_api.register(SharedWithMeResource())
+v1_api.register(SharedByMeResource())
 v1_api.register(UserResource())
 
 urlpatterns = [
