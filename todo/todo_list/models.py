@@ -5,13 +5,13 @@ from tastypie.models import create_api_key
 
 # Create your models here.
 
-class User(User, models.Model):
-	name = models.CharField(null=True, max_length=32)
-	class Meta:
-		ordering = ('id',)
+# class User(User, models.Model):
+# 	name = models.CharField(null=True, max_length=32)
+# 	class Meta:
+# 		ordering = ('id',)
 
-	def __str__(self):
-		return self.name
+# 	def __str__(self):
+# 		return self.name
 
 models.signals.post_save.connect(create_api_key, sender=User)
 

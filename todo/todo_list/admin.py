@@ -4,4 +4,4 @@ from .models import Task, Share, List, User
 admin.site.register(List)
 admin.site.register(Task)
 admin.site.register(Share)
-admin.site.register(User)
+# admin.site.register(User)
