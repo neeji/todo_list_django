@@ -21,6 +21,17 @@ class UserAuthorization(DjangoAuthorization):
 
 # Authorization class for filtering lists which doesnot belong to the user.
 class ListAuthorization(DjangoAuthorization):
+
+	def read_detail(self,object_list,bundle):
+		# check if author
+		if bundle.obj.author == bundle.request.user:
+			return True
+		# check if shared user
+		valid_1 = Share.objects.get(listid__id=bundle.obj.id,user=bundle.request.user) or None
+		if valid_1 is not None:
+			return True
+		return False
+
 	def read_list(self,object_list,bundle):
 		list1 = object_list.filter(author__id=bundle.request.user.id)
 		# for adding shared lists of the user to t he returned data.
@@ -28,13 +39,11 @@ class ListAuthorization(DjangoAuthorization):
 		if shared_list is None:
 			object_list = list1
 			return object_list	
-
 		# If their is a shared list for the user then retrieve that list
 		ids=[]
 		for list_ids in shared_list:
 			# print(ids.listid)
 			ids.append(list_ids.listid.id) 
-
 		list2 = object_list.filter(id__in=ids)
 		"""
 		chaining two list to return a single list to the api combining all the data of the first and the seond list.
@@ -42,6 +51,15 @@ class ListAuthorization(DjangoAuthorization):
 		object_list = [list1,list2]
 		object_list = list(chain(*object_list))
 		return object_list
+
+	def update_detail(self,object_list,bundle):
+		print(object_list)
+		return bundle.obj.author == bundle.request.user
+
+	def delete_detail(self,object_list,bundle):
+		print(object_list)
+		return bundle.obj.author == bundle.request.user
+
 
 class TaskAuthorization(DjangoAuthorization):
 
@@ -76,6 +94,21 @@ class TaskAuthorization(DjangoAuthorization):
 			list1 = object_list.filter(listid__id__in=ids)
 			object_list=list1
 			return object_list
+
+	def update_deatil(self,object_list,bundle):
+		# add logic on who can update details of the tasks
+		# check if user is author of the list
+		ajkjbhbcj
+		# print(bundle.obj)
+		valid_1 = List.objects.get(id=bundle.obj._list.id)
+		if valid_1.user == bundle.request.user:
+			return True
+		# check if list is shared with user
+		# valid_2 = List.object.get(id= bundle.obj.listid.id)
+		valid_2 = Share.objects.get(listid=valid_1,user=bundle.request.user) or None
+		if valid_2 is not None:
+			return True
+		return False
 
 class SharedWithMeAuthorization(DjangoAuthorization):
 
@@ -124,23 +157,23 @@ class ListResource(ModelResource):
 	def prepend_urls(self):
 				# print(resource_name)
 		return [
-			url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
+			# url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
 			url(r"^(?P<resource_name>%s)/share/(?P<listid>\w[\w/-]*)/(?P<username>\w[\w/-]*)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('sharelist'), name='api_particular_list_share'),
 		]
 
-	def particular_id(self,request,**kwargs):
-		# self.method_check(request,allowed=['get','post'])
-		self.is_authenticated(request)
-		# self.throttle_check(request)
-		# Do the query here:
-		# print("hello world")
-		try:
-			send_response = List.objects.get(id=kwargs['pk'],author=request.user)
-			send_response = {'author':send_response.author,'author_id':send_response.author.id,'date_posted':send_response.date_posted,'id':send_response.id,'list_name':send_response.list_name,'completed':send_response.completed,'last_modified':send_response.last_modified}
-		except List.DoesNotExist:
-			send_response={}
-		# print(kwargs)
-		return self.create_response(request,send_response)
+	# def particular_id(self,request,**kwargs):
+		# # self.method_check(request,allowed=['get','post'])
+		# self.is_authenticated(request)
+		# # self.throttle_check(request)
+		# # Do the query here:
+		# # print("hello world")
+		# try:
+		# 	send_response = List.objects.get(id=kwargs['pk'],author=request.user)
+		# 	send_response = {'author':send_response.author,'author_id':send_response.author.id,'date_posted':send_response.date_posted,'id':send_response.id,'list_name':send_response.list_name,'completed':send_response.completed,'last_modified':send_response.last_modified}
+		# except List.DoesNotExist:
+		# 	send_response={}
+		# # print(kwargs)
+		# return self.create_response(request,send_response)
 
 	def sharelist(self,request,**kwargs):
 		self.is_authenticated(request)
@@ -198,44 +231,47 @@ class TaskResource(ModelResource):
 		resource_name = 'tasks'
 		filtering={
 		'_list':ALL_WITH_RELATIONS,
+		'id':ALL_WITH_RELATIONS,
 		}
 		authentication = ApiKeyAuthentication()
 		authorization = TaskAuthorization()
 
 	def prepend_urls(self):
 		return [
-		url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
+		# url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
 		url(r"^(?P<resource_name>%s)/all%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('alltasks'), name='api_all_id_tasks'),
+		url(r"^(?P<resource_name>%s)/list/(?P<listid>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('listtasks'), name='api_all_id_tasks'),
 		]
 
-	def particular_id(self,request,**kwargs):
-		# self.method_check(request,allowed=['get','post'])
-		self.is_authenticated(request)
-		# Do the query here
-		ids =[]
-		# find all the list ids from both shared and main list table
-		try:
-			list1 = List.objects.filter(author = request.user)
-		except List.DoesNotExist:
-			list1 = None
-		try:
-			list2 = Share.objects.filter(user=request.user)
-		except Share.DoesNotExist:
-			list2 = None
+	# def particular_id(self,request,**kwargs):
+	# 	# self.method_check(request,allowed=['get','post'])
+	# 	self.is_authenticated(request)
+	# 	# Do the query here
+	# 	ids =[]
+	# 	# find all the list ids from both shared and main list table
+	# 	try:
+	# 		list1 = List.objects.filter(author = request.user)
+	# 	except List.DoesNotExist:
+	# 		list1 = None
+	# 	try:
+	# 		list2 = Share.objects.filter(user=request.user)
+	# 	except Share.DoesNotExist:
+	# 		list2 = None
 
-		if list1 is not None:
-			for entry in list1:
-				ids.append(entry.id)
-		if list2 is not None:
-			for entry in list2:
-				ids.append(entry.listid.id)
-		try:
-			send_response = Task.objects.get(id = kwargs['pk'],listid__id__in=ids)
-			send_response = {'date_posted':send_response.date_posted,'id':send_response.id,'task':send_response.task,'completed':send_response.completed,'last_modified':send_response.last_modified,'list_name':send_response.listid.list_name,'list_id':send_response.listid.id}
-		except Task.DoesNotExist:
-			send_response = {'error':"You don't have access to that task id."}
+	# 	if list1 is not None:
+	# 		for entry in list1:
+	# 			ids.append(entry.id)
+	# 	if list2 is not None:
+	# 		for entry in list2:
+	# 			ids.append(entry.listid.id)
+	# 	try:
+	# 		send_response = Task.objects.get(id = kwargs['pk'],listid__id__in=ids)
+	# 		send_response = {'date_posted':send_response.date_posted,'id':send_response.id,'task':send_response.task,'completed':send_response.completed,'last_modified':send_response.last_modified,'list_name':send_response.listid.list_name,'list_id':send_response.listid.id}
+	# 	except Task.DoesNotExist:
+	# 		send_response = {'error':"You don't have access to that task id."}
 
-		return self.create_response(request,send_response)
+	# 	return self.create_response(request,send_response)
+
 	def alltasks(self,request,**kwargs):
 		# self.method_check(request,allowed=['get','post'])
 		self.is_authenticated(request)
@@ -272,7 +308,37 @@ class TaskResource(ModelResource):
 
 		return self.create_response(request,output)
 
+	def listtasks(self,request,**kwargs):
+		# self.method_check(request,allowed=['get','post'])
+		self.is_authenticated(request)
+		# Do the query here
+		ids =[]
+		# find whether user have the authority to access the list or not
+		try:
+			list1 = List.objects.get(id=kwargs['listid'],author = request.user)
+		except List.DoesNotExist:
+			list1 = None
+		try:
+			list2 = Share.objects.get(listid__id=kwargs['listid'],user=request.user)
+		except Share.DoesNotExist:
+			list2 = None
+		# list id either doesnot exist or user don't have the authority
+		if list1 is None and list2 is None:
+			return self.create_response(request,{'error-message':"either the list id provided is not correct or you don't have permisiion to access the tasks in the list"})
+		# user is valid and have authority to access the tasks.
+		output=[]
+		all_tasks_details = Task.objects.filter(listid__id=kwargs['listid'])
+		for send_response in all_tasks_details:
+			data = {
+			'date_posted':send_response.date_posted,'id':send_response.id,'task':send_response.task,
+			'completed':send_response.completed,'last_modified':send_response.last_modified,
+			'list_name':send_response.listid.list_name,'list_id':send_response.listid.id
+			}
+			output.append(data)
+		if not output:
+			output = {'message':'Their is no task to be shown in the list.'}
 
+		return self.create_response(request,output)
 
 class SharedWithMeResource(ModelResource):
 	_user = fields.ForeignKey(UserResource,'user',full=True)
@@ -280,6 +346,7 @@ class SharedWithMeResource(ModelResource):
 	class Meta:
 		queryset = Share.objects.all()
 		resource_name = 'sharedwithme'
+		allowed_methods = ['get']
 		authentication = ApiKeyAuthentication()
 		authorization = SharedWithMeAuthorization()
 
@@ -289,6 +356,7 @@ class SharedByMeResource(ModelResource):
 	class Meta:
 		queryset = Share.objects.all()
 		resource_name = 'sharedbyme'
+		allowed_methods = ['get']
 		authentication = ApiKeyAuthentication()
 		authorization = SharedByMeAuthorization()
 
