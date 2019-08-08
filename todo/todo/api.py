@@ -202,6 +202,77 @@ class TaskResource(ModelResource):
 		authentication = ApiKeyAuthentication()
 		authorization = TaskAuthorization()
 
+	def prepend_urls(self):
+		return [
+		url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
+		url(r"^(?P<resource_name>%s)/all%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('alltasks'), name='api_all_id_tasks'),
+		]
+
+	def particular_id(self,request,**kwargs):
+		# self.method_check(request,allowed=['get','post'])
+		self.is_authenticated(request)
+		# Do the query here
+		ids =[]
+		# find all the list ids from both shared and main list table
+		try:
+			list1 = List.objects.filter(author = request.user)
+		except List.DoesNotExist:
+			list1 = None
+		try:
+			list2 = Share.objects.filter(user=request.user)
+		except Share.DoesNotExist:
+			list2 = None
+
+		if list1 is not None:
+			for entry in list1:
+				ids.append(entry.id)
+		if list2 is not None:
+			for entry in list2:
+				ids.append(entry.listid.id)
+		try:
+			send_response = Task.objects.get(id = kwargs['pk'],listid__id__in=ids)
+			send_response = {'date_posted':send_response.date_posted,'id':send_response.id,'task':send_response.task,'completed':send_response.completed,'last_modified':send_response.last_modified,'list_name':send_response.listid.list_name,'list_id':send_response.listid.id}
+		except Task.DoesNotExist:
+			send_response = {'error':"You don't have access to that task id."}
+
+		return self.create_response(request,send_response)
+	def alltasks(self,request,**kwargs):
+		# self.method_check(request,allowed=['get','post'])
+		self.is_authenticated(request)
+		# Do the query here
+		ids =[]
+		# find all the list ids from both shared and main list table
+		try:
+			list1 = List.objects.filter(author = request.user)
+		except List.DoesNotExist:
+			list1 = None
+		try:
+			list2 = Share.objects.filter(user=request.user)
+		except Share.DoesNotExist:
+			list2 = None
+
+		if list1 is not None:
+			for entry in list1:
+				ids.append(entry.id)
+		if list2 is not None:
+			for entry in list2:
+				ids.append(entry.listid.id)
+		if not ids:
+			return self.create_response(request,{'error-message':'Their is no tasks available.'})
+
+		output=[]
+		all_tasks_details = Task.objects.filter(listid__id__in=ids)
+		for send_response in all_tasks_details:
+			data = {
+			'date_posted':send_response.date_posted,'id':send_response.id,'task':send_response.task,
+			'completed':send_response.completed,'last_modified':send_response.last_modified,
+			'list_name':send_response.listid.list_name,'list_id':send_response.listid.id
+			}
+			output.append(data)
+
+		return self.create_response(request,output)
+
+
 
 class SharedWithMeResource(ModelResource):
 	_user = fields.ForeignKey(UserResource,'user',full=True)
