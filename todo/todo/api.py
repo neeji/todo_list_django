@@ -13,6 +13,10 @@ from django.conf.urls import url
 
 # Authorization class for filtering data which doesnot belong to the user.
 class UserAuthorization(DjangoAuthorization):
+
+	def read_detail(self,object_list,bundle):
+		return bundle.obj.user == bundle.request.user
+	
 	def read_list(self,object_list,bundle):
 		object_list = object_list.filter(username=bundle.request.user.username,email=bundle.request.user.email) or None
 		if object_list is None:
@@ -49,9 +53,18 @@ class ListAuthorization(DjangoAuthorization):
 		chaining two list to return a single list to the api combining all the data of the first and the seond list.
 		"""
 		object_list = [list1,list2]
+		# list1.extend(list2)
 		object_list = list(chain(*object_list))
 		return object_list
 
+	def create_detail(self,object_list,bundle):
+		return bundle.obj.author == bundle.request.user
+
+	def create_list(self,object_list,bundle):
+		print(object_list)
+		return object_list
+
+		
 	def update_detail(self,object_list,bundle):
 		print(object_list)
 		return bundle.obj.author == bundle.request.user
@@ -62,6 +75,18 @@ class ListAuthorization(DjangoAuthorization):
 
 
 class TaskAuthorization(DjangoAuthorization):
+
+	def read_detail(self,object_list,bundle):
+		# check if it is author
+		if bundle.obj.listid.author == bundle.request.user:
+			return True
+		# check if it is shared list
+		shared = Share.objects.filter(listid = bundle.obj.listid,user=bundle.request.user) or None
+		if shared is not None:
+			return True
+
+		return False
+
 
 	def read_list(self,object_list,bundle):
 		# test = Share.objects.filter(user=bundle.request.user)
@@ -95,12 +120,12 @@ class TaskAuthorization(DjangoAuthorization):
 			object_list=list1
 			return object_list
 
-	def update_deatil(self,object_list,bundle):
-		# add logic on who can update details of the tasks
+	def create_deatil(self,object_list,bundle):
+		# add logic on who can create tasks
 		# check if user is author of the list
 		ajkjbhbcj
 		# print(bundle.obj)
-		valid_1 = List.objects.get(id=bundle.obj._list.id)
+		valid_1 = List.objects.get(id=bundle.obj.listid.id)
 		if valid_1.user == bundle.request.user:
 			return True
 		# check if list is shared with user
@@ -109,6 +134,7 @@ class TaskAuthorization(DjangoAuthorization):
 		if valid_2 is not None:
 			return True
 		return False
+
 
 class SharedWithMeAuthorization(DjangoAuthorization):
 
@@ -158,7 +184,8 @@ class ListResource(ModelResource):
 				# print(resource_name)
 		return [
 			# url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
-			url(r"^(?P<resource_name>%s)/share/(?P<listid>\w[\w/-]*)/(?P<username>\w[\w/-]*)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('sharelist'), name='api_particular_list_share'),
+			url(r"^(?P<resource_name>%s)/share/(?P<listid>\d+)/(?P<username>\w[\w/-]*)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('sharelist'), name='api_particular_list_share'),
+			url(r"^(?P<resource_name>%s)/create/(?P<list_name>\w[\w/-]*)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('createlist'), name='api_create_list'),
 		]
 
 	# def particular_id(self,request,**kwargs):
@@ -221,6 +248,16 @@ class ListResource(ModelResource):
 		sharing.save()
 		return self.create_response(request,{'status':'well done your list is shared successfully.'})
 
+	def createlist(self,request,**kwargs):
+		self.is_authenticated(request)
+		# print(kwargs)
+		try:
+			q = List(author=request.user,list_name=kwargs['list_name'])
+			q.save()
+		except:
+			return self.create_response(request,{'error':'cannot generate list.'})
+		return self.create_response(request,{'status':'200','message':'list wtih provided name is generated successfully.'})
+
 
 
 class TaskResource(ModelResource):
@@ -241,6 +278,7 @@ class TaskResource(ModelResource):
 		# url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
 		url(r"^(?P<resource_name>%s)/all%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('alltasks'), name='api_all_id_tasks'),
 		url(r"^(?P<resource_name>%s)/list/(?P<listid>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('listtasks'), name='api_all_id_tasks'),
+		url(r"^(?P<resource_name>%s)/create/(?P<listid>\d+)/(?P<task_name>\w[\w/-]*)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('createtask'), name='api_all_id_tasks'),
 		]
 
 	# def particular_id(self,request,**kwargs):
@@ -339,6 +377,27 @@ class TaskResource(ModelResource):
 			output = {'message':'Their is no task to be shown in the list.'}
 
 		return self.create_response(request,output)
+
+	def createtask(self,request,**kwargs):
+		self.is_authenticated(request)
+		# check if the id provided is correct or not
+		print("hello world")
+		try:
+			list_id = List.objects.get(id=kwargs['listid'])
+		except List.DoesNotExist:
+			return self.create_response(request,{'error-message':'The task you are trying to add cannot be added as list with provided id doesnot exist.'})
+		# check if the user have authority or not
+		if list_id.author != request.user:
+		# 	# check if list is shared with user
+			try:
+				valid_2 = Share.objects.get(listid=list_id,user=request.user)
+			except Share.DoesNotExist:
+				return self.create_response(request,{'error-message':"You don't have access to this list."})
+		q = Task(listid=list_id,task=kwargs['task_name'])
+		q.save()
+		return self.create_response(request,{'status':'200','message':'task added to the list successfully'})
+
+
 
 class SharedWithMeResource(ModelResource):
 	_user = fields.ForeignKey(UserResource,'user',full=True)
