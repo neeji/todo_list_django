@@ -2,7 +2,7 @@ from tastypie.resources import ModelResource
 from tastypie.utils import trailing_slash
 from tastypie.constants import ALL,ALL_WITH_RELATIONS
 from tastypie import fields
-from tastypie.authentication import ApiKeyAuthentication
+from tastypie.authentication import ApiKeyAuthentication,BasicAuthentication
 from tastypie.authorization import Authorization,DjangoAuthorization
 from tastypie.exceptions import Unauthorized
 from django.contrib.auth.models import User
@@ -10,18 +10,15 @@ from todo_list.models import List,Task,Share
 from tastypie import bundle
 from itertools import chain
 from django.conf.urls import url
-
+import json
+from django.contrib.auth import authenticate as ath
 # Authorization class for filtering data which doesnot belong to the user.
 class UserAuthorization(DjangoAuthorization):
 
 	def read_detail(self,object_list,bundle):
+		print("read_detail method of UserAuthorization class")
 		return bundle.obj.user == bundle.request.user
 	
-	def read_list(self,object_list,bundle):
-		object_list = object_list.filter(username=bundle.request.user.username,email=bundle.request.user.email) or None
-		if object_list is None:
-			return ["Either the credentials are wrong or user with the provided credentials does not exist."]
-		return object_list
 
 # Authorization class for filtering lists which doesnot belong to the user.
 class ListAuthorization(DjangoAuthorization):
@@ -59,19 +56,20 @@ class ListAuthorization(DjangoAuthorization):
 		return object_list
 
 	def create_detail(self,object_list,bundle):
+		print("create_detail method of ListAuthorization.")
 		return bundle.obj.author == bundle.request.user
 
 	def create_list(self,object_list,bundle):
-		print(object_list)
+		print("create_list method of ListAuthorization.")
 		return object_list
 
 		
 	def update_detail(self,object_list,bundle):
-		print(object_list)
+		print("update_detail method of ListAuthorization.")
 		return bundle.obj.author == bundle.request.user
 
 	def delete_detail(self,object_list,bundle):
-		print(object_list)
+		print("delete_detail method of ListAuthorization.")
 		return bundle.obj.author == bundle.request.user
 
 
@@ -127,21 +125,6 @@ class TaskAuthorization(DjangoAuthorization):
 			object_list=list1
 			return object_list
 
-	# def create_deatil(self,object_list,bundle):
-	# 	# add logic on who can create tasks
-	# 	# check if user is author of the list
-	# 	ajkjbhbcj
-	# 	# print(bundle.obj)
-	# 	valid_1 = List.objects.get(id=bundle.obj.listid.id)
-	# 	if valid_1.user == bundle.request.user:
-	# 		return True
-	# 	# check if list is shared with user
-	# 	# valid_2 = List.object.get(id= bundle.obj.listid.id)
-	# 	valid_2 = Share.objects.get(listid=valid_1,user=bundle.request.user) or None
-	# 	if valid_2 is not None:
-	# 		return True
-	# 	return False
-
 
 class SharedWithMeAuthorization(DjangoAuthorization):
 
@@ -157,10 +140,12 @@ class SharedByMeAuthorization(DjangoAuthorization):
 
 class UserResource(ModelResource):
 	class Meta:
+		allowed_methods = ['get']
 		queryset = User.objects.all()
 		resource_name ='auth/user'
+		include_resource_url = False
 		excludes = ['password', 'is_active', 'is_staff', 'is_superuser']
-		allowed_methods = ['get']
+		# allowed_methods = ['post']
 		filtering={
 		'username':ALL,
 		'id': ALL,
@@ -168,7 +153,37 @@ class UserResource(ModelResource):
 		authentication = ApiKeyAuthentication()
 		authorization = UserAuthorization()
 
-	# def login():
+	# def prepend_url(self):
+	# 	return [
+	# 		url(r"^(?P<resource_name>%s)/login%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('login'), name='api_particular_list_share'),
+	# 	]
+
+	# def login(self,request,**kwargs):
+	# 	data = json.loads(request.body)
+	# 	print(data)
+	# 	return self.create_response(request,{data})
+
+
+class LoginResource(ModelResource):
+	class Meta:
+		# allowed_methods=['put']
+		resource_name='check'
+		include_resource_url=False
+		object_class = User
+	def prepend_urls(self):
+		return [
+			url(r"^(?P<resource_name>%s)/login%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('login'), name='api_particular_list_share'),
+		]
+
+	def login(self,request,**kwargs):
+		print("login method of LoginResource class.")
+		data = json.loads(request.body)
+		user = ath(username=data['loginid'],password=data['password'])
+		if user is None:
+			return self.create_response(request,{'error-message':'Either the credentials are not correct or User doesnot exist.'})
+		apikey = user.api_key
+		return self.create_response(request,{'message':'successfully logined','api_key':apikey})
+
 
 
 class ListResource(ModelResource):
@@ -192,22 +207,8 @@ class ListResource(ModelResource):
 		return [
 			# url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
 			url(r"^(?P<resource_name>%s)/share/(?P<listid>\d+)/(?P<username>\w[\w/-]*)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('sharelist'), name='api_particular_list_share'),
-			url(r"^(?P<resource_name>%s)/create/(?P<list_name>\w[\w/-]*)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('createlist'), name='api_create_list'),
+			url(r"^(?P<resource_name>%s)/create%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('createlist'), name='api_create_list'),
 		]
-
-	# def particular_id(self,request,**kwargs):
-		# # self.method_check(request,allowed=['get','post'])
-		# self.is_authenticated(request)
-		# # self.throttle_check(request)
-		# # Do the query here:
-		# # print("hello world")
-		# try:
-		# 	send_response = List.objects.get(id=kwargs['pk'],author=request.user)
-		# 	send_response = {'author':send_response.author,'author_id':send_response.author.id,'date_posted':send_response.date_posted,'id':send_response.id,'list_name':send_response.list_name,'completed':send_response.completed,'last_modified':send_response.last_modified}
-		# except List.DoesNotExist:
-		# 	send_response={}
-		# # print(kwargs)
-		# return self.create_response(request,send_response)
 
 	def sharelist(self,request,**kwargs):
 		self.is_authenticated(request)
@@ -256,10 +257,14 @@ class ListResource(ModelResource):
 		return self.create_response(request,{'status':'well done your list is shared successfully.'})
 
 	def createlist(self,request,**kwargs):
+		# import ipdb;
+		# ipdb.set_trace()
 		self.is_authenticated(request)
+		body = json.loads(request.body)
+
 		# print(kwargs)
 		try:
-			q = List(author=request.user,list_name=kwargs['list_name'])
+			q = List(author=request.user,list_name=body['list_name'])
 			q.save()
 		except:
 			return self.create_response(request,{'error':'cannot generate list.'})
@@ -284,38 +289,10 @@ class TaskResource(ModelResource):
 		return [
 		# url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
 		url(r"^(?P<resource_name>%s)/all%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('alltasks'), name='api_all_id_tasks'),
-		url(r"^(?P<resource_name>%s)/list/(?P<listid>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('listtasks'), name='api_all_id_tasks'),
-		url(r"^(?P<resource_name>%s)/create/(?P<listid>\d+)/(?P<task_name>\w[\w/-]*)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('createtask'), name='api_all_id_tasks'),
+		url(r"^(?P<resource_name>%s)/list/(?P<listid>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('listtasks'), name='api_list_id_tasks'),
+		url(r"^(?P<resource_name>%s)/create%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('createtask'), name='api_create_tasks'),
 		]
 
-	# def particular_id(self,request,**kwargs):
-	# 	# self.method_check(request,allowed=['get','post'])
-	# 	self.is_authenticated(request)
-	# 	# Do the query here
-	# 	ids =[]
-	# 	# find all the list ids from both shared and main list table
-	# 	try:
-	# 		list1 = List.objects.filter(author = request.user)
-	# 	except List.DoesNotExist:
-	# 		list1 = None
-	# 	try:
-	# 		list2 = Share.objects.filter(user=request.user)
-	# 	except Share.DoesNotExist:
-	# 		list2 = None
-
-	# 	if list1 is not None:
-	# 		for entry in list1:
-	# 			ids.append(entry.id)
-	# 	if list2 is not None:
-	# 		for entry in list2:
-	# 			ids.append(entry.listid.id)
-	# 	try:
-	# 		send_response = Task.objects.get(id = kwargs['pk'],listid__id__in=ids)
-	# 		send_response = {'date_posted':send_response.date_posted,'id':send_response.id,'task':send_response.task,'completed':send_response.completed,'last_modified':send_response.last_modified,'list_name':send_response.listid.list_name,'list_id':send_response.listid.id}
-	# 	except Task.DoesNotExist:
-	# 		send_response = {'error':"You don't have access to that task id."}
-
-	# 	return self.create_response(request,send_response)
 
 	def alltasks(self,request,**kwargs):
 		# self.method_check(request,allowed=['get','post'])
@@ -388,9 +365,10 @@ class TaskResource(ModelResource):
 	def createtask(self,request,**kwargs):
 		self.is_authenticated(request)
 		# check if the id provided is correct or not
-		print("hello world")
+		data = json.loads(request.body)
+		print("createtask method of class TaskResource")
 		try:
-			list_id = List.objects.get(id=kwargs['listid'])
+			list_id = List.objects.get(id=data['listid'])
 		except List.DoesNotExist:
 			return self.create_response(request,{'error-message':'The task you are trying to add cannot be added as list with provided id doesnot exist.'})
 		# check if the user have authority or not
@@ -400,7 +378,7 @@ class TaskResource(ModelResource):
 				valid_2 = Share.objects.get(listid=list_id,user=request.user)
 			except Share.DoesNotExist:
 				return self.create_response(request,{'error-message':"You don't have access to this list."})
-		q = Task(listid=list_id,task=kwargs['task_name'])
+		q = Task(listid=list_id,task=data['task_name'])
 		q.save()
 		return self.create_response(request,{'status':'200','message':'task added to the list successfully'})
 
