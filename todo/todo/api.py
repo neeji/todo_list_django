@@ -27,6 +27,7 @@ class UserAuthorization(DjangoAuthorization):
 class ListAuthorization(DjangoAuthorization):
 
 	def read_detail(self,object_list,bundle):
+		print("read_detail method of ListAuthorization class")
 		# check if author
 		if bundle.obj.author == bundle.request.user:
 			return True
@@ -77,15 +78,21 @@ class ListAuthorization(DjangoAuthorization):
 class TaskAuthorization(DjangoAuthorization):
 
 	def read_detail(self,object_list,bundle):
+		print("read_detail method of TaskAuthorization.")
+		# print(bundle.request.user)
+		# print(bundle.obj.listid.author)
 		# check if it is author
 		if bundle.obj.listid.author == bundle.request.user:
 			return True
 		# check if it is shared list
-		shared = Share.objects.filter(listid = bundle.obj.listid,user=bundle.request.user) or None
-		if shared is not None:
-			return True
-
-		return False
+		try:
+			shared = Share.objects.filter(listid = bundle.obj.listid,user=bundle.request.user) or None
+			print(shared)
+		except Share.DoesNotExist:
+			return False
+		if shared is None:
+			return False
+		return True
 
 
 	def read_list(self,object_list,bundle):
@@ -120,20 +127,20 @@ class TaskAuthorization(DjangoAuthorization):
 			object_list=list1
 			return object_list
 
-	def create_deatil(self,object_list,bundle):
-		# add logic on who can create tasks
-		# check if user is author of the list
-		ajkjbhbcj
-		# print(bundle.obj)
-		valid_1 = List.objects.get(id=bundle.obj.listid.id)
-		if valid_1.user == bundle.request.user:
-			return True
-		# check if list is shared with user
-		# valid_2 = List.object.get(id= bundle.obj.listid.id)
-		valid_2 = Share.objects.get(listid=valid_1,user=bundle.request.user) or None
-		if valid_2 is not None:
-			return True
-		return False
+	# def create_deatil(self,object_list,bundle):
+	# 	# add logic on who can create tasks
+	# 	# check if user is author of the list
+	# 	ajkjbhbcj
+	# 	# print(bundle.obj)
+	# 	valid_1 = List.objects.get(id=bundle.obj.listid.id)
+	# 	if valid_1.user == bundle.request.user:
+	# 		return True
+	# 	# check if list is shared with user
+	# 	# valid_2 = List.object.get(id= bundle.obj.listid.id)
+	# 	valid_2 = Share.objects.get(listid=valid_1,user=bundle.request.user) or None
+	# 	if valid_2 is not None:
+	# 		return True
+	# 	return False
 
 
 class SharedWithMeAuthorization(DjangoAuthorization):
