@@ -5,7 +5,7 @@ from tastypie import fields
 from tastypie.authentication import ApiKeyAuthentication,BasicAuthentication
 from tastypie.authorization import Authorization,DjangoAuthorization
 from tastypie.exceptions import Unauthorized
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from todo_list.models import List,Task,Share
 from tastypie import bundle
 from itertools import chain
@@ -18,6 +18,9 @@ class UserAuthorization(DjangoAuthorization):
 	def read_detail(self,object_list,bundle):
 		print("read_detail method of UserAuthorization class")
 		return bundle.obj.user == bundle.request.user
+
+	def  read_list(self,object_list,bundle):
+		return object_list.filter(username=bundle.request.user.username)
 	
 
 # Authorization class for filtering lists which doesnot belong to the user.
@@ -145,7 +148,6 @@ class UserResource(ModelResource):
 		resource_name ='auth/user'
 		include_resource_url = False
 		excludes = ['password', 'is_active', 'is_staff', 'is_superuser']
-		# allowed_methods = ['post']
 		filtering={
 		'username':ALL,
 		'id': ALL,
@@ -153,37 +155,46 @@ class UserResource(ModelResource):
 		authentication = ApiKeyAuthentication()
 		authorization = UserAuthorization()
 
-	# def prepend_url(self):
-	# 	return [
-	# 		url(r"^(?P<resource_name>%s)/login%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('login'), name='api_particular_list_share'),
-	# 	]
-
-	# def login(self,request,**kwargs):
-	# 	data = json.loads(request.body)
-	# 	print(data)
-	# 	return self.create_response(request,{data})
-
-
-class LoginResource(ModelResource):
-	class Meta:
-		# allowed_methods=['put']
-		resource_name='check'
-		include_resource_url=False
-		object_class = User
 	def prepend_urls(self):
-		return [
-			url(r"^(?P<resource_name>%s)/login%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('login'), name='api_particular_list_share'),
+		return[
+		url(r"^(?P<resource_name>%s)/login%s$" % (self._meta.resource_name,trailing_slash()),self.wrap_view('login'), name='api_particular_list_share'),
+		url(r"^(?P<resource_name>%s)/register%s$" % (self._meta.resource_name,trailing_slash()), 
+			self.wrap_view('register'), name='api_particular_list_share'),
 		]
 
 	def login(self,request,**kwargs):
+		# if(request.user.is_authenticated):
+		# 	return self.create_response(request,{'message':'already logged in.'})
 		print("login method of LoginResource class.")
 		data = json.loads(request.body)
 		user = ath(username=data['loginid'],password=data['password'])
 		if user is None:
 			return self.create_response(request,{'error-message':'Either the credentials are not correct or User doesnot exist.'})
-		apikey = user.api_key
+		apikey = str(user.api_key)
+		apikey = apikey.split()[0]
 		return self.create_response(request,{'message':'successfully logined','api_key':apikey})
 
+	def register(self,request,**kwargs):
+		if(request.user.is_authenticated):
+			return self.create_response(request,{'error-message':'First you need to log out of the system.'})
+		data = json.loads(request.body)
+		# check if password1 and password2 are same
+		if data['password1']!=data['password2'] :
+			return self.create_response(request,{'error-message':'The two password entered didnot match.'})
+		# check if username already exist or not
+		user = User.objects.filter(username=data['username'])
+		if user.exists():
+			return self.create_response(request,{'error-message':'user with provided username already exist.'})
+		# check if user with provided email exist or not
+		user = User.objects.filter(email=data['email'])
+		if user.exists():
+			return self.create_response(request,{'error-message':'User with provided email already exist.'})
+		user = User.objects.create_user(username=data['username'],password=data['password1'],email=data['email'])
+		user.save()
+		g = Group.objects.get(name="todolist_permission")
+		user = User.objects.get(username=data['username'])
+		g.user_set.add(user)
+		return self.create_response(request,{'message':'User with provided credentials created successfully.'})
 
 
 class ListResource(ModelResource):
@@ -194,7 +205,7 @@ class ListResource(ModelResource):
 		# fields=[full=True]
 		# excludes = ['email', 'password', 'is_superuser']
 		resource_name = 'lists'
-		# allowed_methods = ['get']
+		allowed_methods = ['get','post','put','delete']
 		filtering = {
             'author':ALL_WITH_RELATIONS,
             'id':ALL,
@@ -205,7 +216,6 @@ class ListResource(ModelResource):
 	def prepend_urls(self):
 				# print(resource_name)
 		return [
-			# url(r"^(?P<resource_name>%s)/(?P<pk>\d+)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('particular_id'), name='api_particular_list_id'),
 			url(r"^(?P<resource_name>%s)/share/(?P<listid>\d+)/(?P<username>\w[\w/-]*)%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('sharelist'), name='api_particular_list_share'),
 			url(r"^(?P<resource_name>%s)/create%s$" % (self._meta.resource_name,trailing_slash()), self.wrap_view('createlist'), name='api_create_list'),
 		]
@@ -214,21 +224,18 @@ class ListResource(ModelResource):
 		self.is_authenticated(request)
 		# print(kwargs)
 		# username exist or not
-		try:
-			check_username_validity = User.objects.get(username = kwargs['username'])
-		except User.DoesNotExist:
+		
+		check_username_validity = User.objects.filter(username = kwargs['username'])
+
+		if not check_username_validity.exists():
 			return self.create_response(request,{'error':'username entered doesnot exist'})
 		# check if the entered list id is valid
-		try:
-			check_listid_valid = List.objects.get(id=kwargs['listid'])
-		except List.DoesNotExist:
+		check_listid_valid = List.objects.filter(id=kwargs['listid'])
+		if not check_listid_valid.exists():
 			return self.create_response(request,{'error':'entered listid doesnot exist'})
 		# check is user is sending request to himself
-		try:
-			valid_request = List.objects.get(id=kwargs['listid'], author__username=kwargs['username'])
-		except List.DoesNotExist:
-			valid_request = None
-		if valid_request is not None:
+		valid_request = List.objects.filter(id=kwargs['listid'], author__username=kwargs['username'])
+		if valid_request.exists():
 			return self.create_response(request,{'error':"cannot send owner's list to owner itself."})
 		# Before sharing Authorize user from both list and share models
 		try:
