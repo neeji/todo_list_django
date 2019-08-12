@@ -17,7 +17,7 @@ class UserAuthorization(DjangoAuthorization):
 
 	def read_detail(self,object_list,bundle):
 		print("read_detail method of UserAuthorization class")
-		return bundle.obj.user == bundle.request.user
+		return bundle.obj.id == bundle.request.user.id
 
 	def  read_list(self,object_list,bundle):
 		return object_list.filter(username=bundle.request.user.username)
