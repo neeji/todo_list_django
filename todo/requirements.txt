@@ -1,0 +1,8 @@
+Django>2
+django-crispy-forms
+django-tastypie
+ipdb
+ipython
+jsonfield
+line_profiler
+-e git://github.com/pavanv/django-randomprimary#egg=django-randomprimary
